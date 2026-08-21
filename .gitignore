@@ -1,0 +1,11 @@
+node_modules/
+.wrangler/
+.wrangler-config/
+.npm-cache/
+.dev.vars
+.env
+.env.*
+wrangler.jsonc
+worker-configuration.d.ts
+npm-debug.log*
+.DS_Store

@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "x-mcp",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-06-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "YOUR_CLOUDFLARE_ACCOUNT_ID",
+  "observability": { "enabled": true },
+  "vars": {
+    "FXTWITTER_BASE_URL": "https://api.fxtwitter.com",
+    "NITTER_INSTANCES": "https://nitter.perennialte.ch,https://nitter.privacyredirect.com",
+    "NITTER_MAX_CANARY_AGE_MIN": "180",
+    "NITTER_MAX_CANARY_LAG_MIN": "90"
+  }
+}

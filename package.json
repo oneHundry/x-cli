@@ -1,0 +1,32 @@
+{
+  "name": "x-mcp",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Local read-only X/Twitter CLI and MCP with FxTwitter plus Nitter search fallback",
+  "bin": {
+    "x": "./dist/cli.js"
+  },
+  "scripts": {
+    "build:cli": "tsc -p tsconfig.cli.json",
+    "prepare": "npm run build:cli",
+    "types:worker": "node scripts/wrangler-types.mjs",
+    "check": "npm run types:worker && tsc --noEmit && npm run build:cli",
+    "test": "npm run build:cli && node --test tests/*.test.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "deploy:dry": "wrangler deploy --dry-run --config wrangler.jsonc",
+    "deploy": "wrangler deploy --keep-vars --config wrangler.jsonc"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "fast-xml-parser": "^5.3.5",
+    "hono": "^4.12.26",
+    "undici": "^7.29.0",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.101.0"
+  }
+}
