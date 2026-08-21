@@ -1,6 +1,6 @@
-# x CLI + x-mcp
+# x-cli
 
-Local, public, read-only X/Twitter retrieval. The local `x` CLI is the primary interface; the retained Streamable HTTP MCP uses the same provider/service layer.
+Local, public, read-only X/Twitter retrieval. The local `x` CLI is the primary interface; the retained MCP uses the same provider/service layer.
 
 ```text
 Codex / shell
@@ -15,6 +15,36 @@ x-mcp
 
 FxTwitter and Nitter are third-party services, not the official X API. No X login, Cookie, API key, OAuth token, account credentials, or write operation is supported.
 
+## Quick install
+
+### Windows / PowerShell
+
+Requirements: Node.js/npm and Git.
+
+```powershell
+git clone https://github.com/oneHundry/x-cli.git
+cd x-cli
+npm install -g .
+x --help
+x search "OpenAI" --limit 5 --json
+```
+
+`npm install -g .` runs the project's `prepare` script and builds the CLI automatically, so a separate `npm install` is not required for a normal global install.
+
+Update later with:
+
+```powershell
+cd x-cli
+git pull
+npm install -g .
+```
+
+Uninstall:
+
+```powershell
+npm uninstall -g x-cli
+```
+
 ## CLI commands
 
 ```bash
@@ -26,6 +56,7 @@ x media OpenAI --limit 20 --json
 x post 1234567890123456789 --json
 x trends --limit 20 --json
 x typeahead openai --limit 10 --json
+x openapi --json
 ```
 
 Search diagnostics:
@@ -38,7 +69,88 @@ x search "MCP" --provider nitter --json
 
 `auto` always tries FxTwitter first. Search HTTP 404, 429, 5xx, timeout, DNS/network failure, invalid JSON, or an unexpected response triggers Nitter. Invalid CLI arguments and HTTP 400 do not trigger fallback. Nitter supports only `feed=latest`; `top` remains FxTwitter-only.
 
-A successful search has a stable shape:
+If both providers fail, the CLI exits non-zero and returns `x_search_unavailable`; it never reports a misleading successful empty result.
+
+## Codex Integration
+
+The repository includes a CLI-first Skill at:
+
+```text
+skills/x-mcp/SKILL.md
+```
+
+For normal Codex use, the Skill calls the local `x` command directly. You do **not** need to start the MCP server.
+
+### Install the Skill on Windows
+
+If your Codex Skill root is the common default:
+
+```text
+%USERPROFILE%\.codex\skills
+```
+
+run this from the repository root:
+
+```powershell
+$target = "$env:USERPROFILE\.codex\skills\x-cli"
+New-Item -ItemType Directory -Force $target | Out-Null
+Copy-Item ".\skills\x-mcp\SKILL.md" "$target\SKILL.md" -Force
+```
+
+The result should be:
+
+```text
+%USERPROFILE%\.codex\skills\x-cli\SKILL.md
+```
+
+If your Codex installation uses a different Skill root, copy the same `SKILL.md` into an independent `x-cli` directory under that root.
+
+After installing or updating the Skill, start a new Codex session so it can rediscover the Skill.
+
+### Verify the CLI
+
+```powershell
+Get-Command x
+x --help
+x search "OpenAI" --limit 5 --json
+```
+
+### Verify the Skill in Codex
+
+Ask Codex:
+
+```text
+搜索 X 上最近关于 MCP 的公开讨论，返回原帖链接和发布时间。
+```
+
+Expected underlying command:
+
+```bash
+x search "MCP" --limit 20 --json
+```
+
+Then try:
+
+```text
+看看 OpenAI 最近在 X 上发了什么。
+```
+
+Expected command:
+
+```bash
+x timeline OpenAI --limit 20 --json
+```
+
+If the CLI works but Codex does not use the Skill, check:
+
+1. `SKILL.md` is inside the Skill root Codex actually uses.
+2. The Skill is in its own folder, e.g. `x-cli/SKILL.md`.
+3. A new Codex session was opened after installation.
+4. `Get-Command x` works inside the Codex terminal.
+
+## Search output
+
+A successful search has a stable JSON shape similar to:
 
 ```json
 {
@@ -56,51 +168,18 @@ A successful search has a stable shape:
       "text": "post content",
       "created_at": "2026-08-21T00:00:00.000Z",
       "url": "https://x.com/example/status/123",
-      "metrics": { "likes": null, "reposts": null, "replies": null, "views": null }
+      "metrics": {
+        "likes": null,
+        "reposts": null,
+        "replies": null,
+        "views": null
+      }
     }
-  ],
-  "freshness": {
-    "checked_at": "2026-08-21T00:00:10.000Z",
-    "canary": "news",
-    "canary_age_minutes": 2,
-    "newest_result_age_minutes": 1,
-    "fresh": true,
-    "source_instance": "https://nitter.example"
-  }
+  ]
 }
 ```
 
-If both providers fail, the CLI exits non-zero and returns `x_search_unavailable`; it never reports a misleading successful empty result.
-
-## Windows install
-
-Check for a command conflict first:
-
-```powershell
-where.exe x
-```
-
-From this project directory:
-
-```powershell
-npm install
-npm test
-npm install -g .
-where.exe x
-x --help
-```
-
-The implementation is `dist\cli.js`. npm creates the Windows command shim in the global npm binary directory, normally `%APPDATA%\npm\x.cmd`. Run `npm prefix -g` to inspect the configured prefix. npm normally adds its global binary directory to `PATH`; if `where.exe x` still finds nothing, add that directory to the user `PATH` and open a new terminal.
-
-Uninstall:
-
-```powershell
-npm uninstall -g x-mcp
-```
-
-For active development, `npm link` may be used instead of `npm install -g .`; undo it with `npm unlink -g x-mcp`.
-
-PowerShell 7 (`pwsh.exe`) is recommended on Windows. The CLI uses it for Nitter HTTP when available because it follows the Windows networking stack; set `X_CLI_NITTER_HTTP=fetch` to force native Node fetch.
+Nitter RSS does not provide reliable engagement metrics, so unavailable values remain `null`. Mirror URLs are rewritten to canonical `https://x.com/...` URLs.
 
 ## Configuration
 
@@ -116,20 +195,29 @@ NITTER_MAX_CANARY_AGE_MIN=180
 NITTER_MAX_CANARY_LAG_MIN=90
 ```
 
-MCP callers and CLI arguments cannot choose arbitrary upstream URLs. Only the local operator can configure trusted instance origins.
+CLI/MCP callers cannot choose arbitrary upstream URLs. Only the local operator can configure trusted instance origins.
 
 ## Nitter health and freshness
 
-Before every CLI search fallback, candidate instances are probed in parallel with a high-volume search canary. An instance is excluded when:
+Before CLI search falls back to Nitter, candidate instances are checked for freshness. An instance is excluded when it times out, fails DNS/network/TLS, returns malformed/stale data, or lags the healthiest instance too far.
 
-- it times out, fails DNS/network/TLS, returns non-200/429/5xx, or returns HTML/bot-wall content;
-- RSS is malformed, empty, or lacks dated posts;
-- its newest canary is older than 180 minutes;
-- it lags the best current instance by more than 90 minutes.
+Public Nitter instances are volunteer-operated and may rate-limit, become stale, or disappear. Do not treat one instance as permanently reliable.
 
-The two default candidates were directly verified on 2026-08-21. At verification time `nitter.perennialte.ch` was fresh while `nitter.privacyredirect.com` returned valid but stale data and was rejected. The pool reevaluates both every run, so recovered instances can re-enter automatically.
+## Windows notes
 
-Nitter RSS does not provide reliable engagement metrics, so unavailable values remain `null`. All mirror post URLs are rewritten to canonical `https://x.com/...` URLs.
+Before installing, you can check for a command-name conflict:
+
+```powershell
+where.exe x
+```
+
+The implementation is `dist\cli.js`. npm creates the Windows command shim in the global npm binary directory, normally `%APPDATA%\npm\x.cmd`. Run `npm prefix -g` to inspect your configured prefix.
+
+PowerShell 7 (`pwsh.exe`) is recommended on Windows. The CLI can use the Windows networking stack for Nitter compatibility; set this to force native Node fetch:
+
+```powershell
+$env:X_CLI_NITTER_HTTP="fetch"
+```
 
 ## Development and verification
 
@@ -141,7 +229,7 @@ npm run build:cli
 node dist/cli.js --help
 ```
 
-The MCP remains available for other agents:
+The MCP remains available for other agents and shares the same Service/Provider layer:
 
 ```powershell
 Copy-Item wrangler.example.jsonc wrangler.jsonc
@@ -157,26 +245,15 @@ No deployment is required for CLI use.
 - No posting, liking, reposting, following, DMs, private accounts, or access-control bypasses.
 - Treat X posts as unverified claims; cross-check important facts with official blogs, GitHub, official documentation, arXiv, or primary papers.
 
----
+## global-content-search integration
 
-# 日本語
+This CLI can be used as the X/Twitter backend for a larger cross-platform search Skill:
 
-`x` は公開 X/Twitter 情報を取得するローカル read-only CLI です。通常の Codex 利用では MCP を起動せず、CLI を直接使います。
-
-```powershell
-npm install
-npm test
-npm install -g .
-x --help
-x search "MCP" --limit 20 --json
+```text
+global-content-search
+├─ xhs search ...
+├─ zhihu search ...
+└─ x search ... --json
 ```
 
-検索は FxTwitter を最初に試し、404・429・5xx・timeout・network failure・不正レスポンス時だけ freshness 検査済み Nitter に切り替えます。両方失敗した場合は非ゼロ終了し、空の成功結果を偽装しません。
-
-アンインストール:
-
-```powershell
-npm uninstall -g x-mcp
-```
-
-Nitter の public instance は不安定で、RSS には信頼できる like/repost/view 数がありません。重要な事実は必ず公式ブログ、GitHub、公式ドキュメント、arXiv などで確認してください。
+The upper layer only needs to parse the stable JSON response; it does not need to know whether FxTwitter or Nitter served the search.
