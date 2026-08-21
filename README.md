@@ -42,8 +42,10 @@ npm install -g .
 Uninstall:
 
 ```powershell
-npm uninstall -g x-cli
+npm uninstall -g x-mcp
 ```
+
+> The repository and CLI command are named `x-cli` / `x`, while the current npm package identity remains `x-mcp` for compatibility.
 
 ## CLI commands
 
